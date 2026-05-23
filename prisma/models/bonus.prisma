@@ -1,0 +1,90 @@
+model DailyBonus {
+  id          BigInt      @id @default(autoincrement())
+  userId      BigInt
+  amount      Decimal     @default(0) @db.Decimal(18, 8)
+  status      BonusStatus @default(pending)
+  slToken     String?
+  nextClaim   DateTime?
+  completedAt DateTime?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@schema("users")
+}
+
+model MonthlyBonus {
+  id          BigInt      @id @default(autoincrement())
+  userId      BigInt
+  amount      Decimal     @default(0) @db.Decimal(18, 8)
+  status      BonusStatus @default(pending)
+  slToken     String?
+  nextClaim   DateTime?
+  completedAt DateTime?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@schema("users")
+}
+
+model Cashback {
+  id          BigInt      @id @default(autoincrement())
+  userId      BigInt
+  amount      Decimal     @default(0) @db.Decimal(18, 8)
+  status      BonusStatus @default(pending)
+  slToken     String?
+  nextClaim   DateTime?
+  completedAt DateTime?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@schema("users")
+}
+
+model BoostPurchased {
+  sessionId    String   @id
+  userId       BigInt
+  title        String?
+  bonusPercent Decimal  @default(0) @db.Decimal(18, 8)
+  duration     Int?
+  price        Decimal? @db.Decimal(18, 8)
+  coinsBefore  Decimal? @db.Decimal(18, 8)
+  coinsAfter   Decimal? @db.Decimal(18, 8)
+  usable       Boolean  @default(true)
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@schema("users")
+}
+
+model History {
+  id         BigInt    @id @default(autoincrement())
+  userId     BigInt
+  source     String?
+  sourceId   String?
+  timestamp  DateTime?
+  coinName   String?
+  amount     Decimal   @default(0) @db.Decimal(18, 8)
+  status     String?
+  expiryTime DateTime?
+  extra      Json?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([source, sourceId])
+  @@index([coinName])
+  @@schema("users")
+}

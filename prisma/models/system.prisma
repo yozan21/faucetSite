@@ -1,0 +1,103 @@
+model MiningConfig {
+  id                BigInt    @id @default(autoincrement())
+  subscriptionName  String
+  miningDurationSec Int
+  miningAmountSec   Decimal   @default(0) @db.Decimal(18, 8)
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  @@index([subscriptionName])
+  @@schema("system")
+}
+
+model WithdrawRequirement {
+  id                      BigInt    @id @default(autoincrement())
+  subscriptionName        String
+  minimumWithdrawAmount   Decimal   @default(0) @db.Decimal(18, 8)
+  withdrawalFeePercentage Decimal   @default(0) @db.Decimal(9, 6)
+  processingTime          String?
+  withdrawalLimitations   String?
+  isActive                Boolean   @default(true)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  deletedAt               DateTime?
+
+  @@index([subscriptionName])
+  @@schema("system")
+}
+
+model ReferralRewardConfig {
+  id               BigInt    @id @default(autoincrement())
+  subscriptionName String    @unique
+  level1           Decimal   @default(0) @db.Decimal(7, 4)
+  level2           Decimal   @default(0) @db.Decimal(7, 4)
+  level3           Decimal   @default(0) @db.Decimal(7, 4)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  @@schema("system")
+}
+
+model DailyBonusConfig {
+  id               BigInt    @id @default(autoincrement())
+  subscriptionName String
+  amount           Decimal   @default(0) @db.Decimal(18, 8)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  @@index([subscriptionName])
+  @@schema("system")
+}
+
+model MonthlyBonusConfig {
+  id               BigInt    @id @default(autoincrement())
+  subscriptionName String
+  minAmount        Decimal   @default(0) @db.Decimal(18, 8)
+  maxAmount        Decimal   @default(0) @db.Decimal(18, 8)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  @@index([subscriptionName])
+  @@schema("system")
+}
+
+model CashbackConfig {
+  id               BigInt    @id @default(autoincrement())
+  subscriptionName String
+  minAmount        Decimal   @default(0) @db.Decimal(18, 8)
+  maxAmount        Decimal   @default(0) @db.Decimal(18, 8)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  @@index([subscriptionName])
+  @@schema("system")
+}
+
+model Deposit {
+  id        BigInt    @id @default(autoincrement())
+  coinName  String
+  type      String
+  depositId String?   @unique
+  address   String?
+  network   String?
+  minAmount Decimal?  @db.Decimal(18, 8)
+  maxAmount Decimal?  @db.Decimal(18, 8)
+  rate      Decimal?  @db.Decimal(18, 8)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([coinName, type])
+  @@schema("system")
+}

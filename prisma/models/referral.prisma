@@ -1,0 +1,45 @@
+model ReferralUserData {
+  id         BigInt   @id @default(autoincrement())
+  referrerId BigInt
+  referredId BigInt   @unique // one user can only be referred once
+  createdAt  DateTime @default(now())
+
+  referrer User @relation("ReferrerRelation", fields: [referrerId], references: [id], onDelete: Restrict)
+  referred User @relation("ReferredRelation", fields: [referredId], references: [id], onDelete: Restrict)
+
+  @@unique([referrerId, referredId])
+  @@index([referrerId])
+  @@schema("users")
+}
+
+model ReferralLevelHistory {
+  id                 BigInt      @id @default(autoincrement())
+  userId             BigInt
+  level              Int
+  referredPercentage Decimal?    @db.Decimal(7, 4)
+  referralReward     Decimal     @default(0) @db.Decimal(18, 8)
+  status             BonusStatus @default(pending)
+  slToken            String?
+  claimedAt          DateTime?
+  createdAt          DateTime    @default(now())
+
+  @@index([userId])
+  @@index([userId, level])
+  @@schema("users")
+}
+
+model ReferralRewardHistory {
+  id                 BigInt   @id @default(autoincrement())
+  userId             BigInt
+  amount             Decimal  @default(0) @db.Decimal(18, 8)
+  level              Int?
+  referredPercentage Decimal? @db.Decimal(7, 4)
+  referralRoot       String?
+  miningSessionId    String?
+  createdAt          DateTime @default(now())
+
+  @@unique([miningSessionId, level, userId], name: "referral_reward_unique")
+  @@index([userId])
+  @@index([miningSessionId])
+  @@schema("users")
+}

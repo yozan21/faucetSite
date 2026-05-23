@@ -1,0 +1,94 @@
+enum Role {
+  superadmin
+  admin
+  moderator
+  tester
+  advertiser
+  sponsor
+  user
+
+  @@schema("users")
+}
+
+enum ClaimStatus {
+  pending
+  completed
+  flagged
+  rejected
+
+  @@schema("users")
+}
+
+enum PayoutStatus {
+  pending
+  processing
+  completed
+  failed
+
+  @@schema("users")
+}
+
+enum TransactionType {
+  mine
+  claim
+  referral_reward
+  bonus
+  daily_bonus
+  monthly_bonus
+  cashback
+  withdrawal
+  adjustment
+
+  @@schema("users")
+}
+
+enum MiningStatus {
+  active
+  completed
+  expired
+  cancelled
+
+  @@schema("users")
+}
+
+enum ShortlinkStatus {
+  pending
+  completed
+  expired
+  flagged
+
+  @@schema("users")
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+
+  @@schema("users")
+}
+
+enum ControlRole {
+  superadmin
+  admin
+  moderator
+  tester
+
+  @@schema("control")
+}
+
+enum BonusStatus {
+  pending
+  completed
+  expired
+
+  @@schema("users")
+}
+
+enum EarlyAccessStatus {
+  disallowed
+  allowed
+  used
+
+  @@schema("general")
+}

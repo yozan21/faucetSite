@@ -1,0 +1,38 @@
+model TeamMember {
+  id         BigInt      @id @default(autoincrement())
+  username   String      @unique
+  role       ControlRole @default(admin)
+  password   String?
+  adminPin   String? // hashed — for re-auth layer
+  ip         String?     @db.Inet
+  profileImg String?
+  active     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+
+  loginHistory ControlLoginHistory[]
+
+  @@index([username])
+  @@schema("control")
+}
+
+model ControlLoginHistory {
+  id            BigInt    @id @default(autoincrement())
+  teamMemberId  BigInt
+  sessionId     String
+  loginSession  String
+  active        Boolean   @default(false)
+  loginStatus   String    @default("failed")
+  ip            String?   @db.Inet
+  failureReason String?
+  expiryAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Restrict)
+
+  @@index([teamMemberId])
+  @@index([sessionId])
+  @@schema("control")
+}
