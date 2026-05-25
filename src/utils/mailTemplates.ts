@@ -59,30 +59,13 @@ export const inviteCodeTemplate = (
 `;
 export const passwordResetAlertTemplate = (
   username: string,
-  ip: string,
-  country: string,
   date: Date,
 ): string => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
     <h2>Your password was reset</h2>
     <p>Hi <strong>${username}</strong>,</p>
-    <p>Your account password was successfully reset. Here are the details:</p>
-    <div style="background: #f4f4f4; border-radius: 8px; padding: 16px; margin: 16px 0;">
-      <table style="width: 100%; font-size: 14px;">
-        <tr>
-          <td style="color: #666; padding: 6px 0;">Date & Time</td>
-          <td style="font-weight: bold;">${date.toUTCString()}</td>
-        </tr>
-        <tr>
-          <td style="color: #666; padding: 6px 0;">IP Address</td>
-          <td style="font-weight: bold;">${ip}</td>
-        </tr>
-        <tr>
-          <td style="color: #666; padding: 6px 0;">Country</td>
-          <td style="font-weight: bold;">${country}</td>
-        </tr>
-      </table>
-    </div>
+    <p>Your account password was successfully reset</p>
+    <p>Date and time: ${date.toUTCString()}</p>
     <p style="color: #e53e3e;"><strong>⚠️ If this wasn't you:</strong></p>
     <ul>
       <li>Your recovery token may be compromised</li>

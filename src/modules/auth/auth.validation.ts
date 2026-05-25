@@ -29,11 +29,11 @@ export const registerSchema = z.object({
         ctx.addIssue({ code: "custom", message: "Must contain uppercase" });
       if (!/[0-9]/.test(val))
         ctx.addIssue({ code: "custom", message: "Must contain number" });
-      // if (!/[^a-zA-Z0-9]/.test(val))
-      //   ctx.addIssue({
-      //     code: "custom",
-      //     message: "Must contain special character",
-      //   });
+      if (!/[^a-zA-Z0-9]/.test(val))
+        ctx.addIssue({
+          code: "custom",
+          message: "Must contain special character",
+        });
     }),
   referralCode: z.string().trim().optional(),
 });
@@ -95,6 +95,30 @@ export const verifyResetTokenSchema = z.object({
   recoveryToken: z.string().trim().length(64, "Invalid recovery token"),
 });
 
+export const verifyResetOtpSchema = z.object({
+  identifier: z
+    .string()
+    .trim()
+    .min(1, "Username or email is required")
+    .refine(
+      (val) => {
+        // If it looks like an email, skip the username character check (it's already valid text)
+        if (val.includes("@")) return true;
+
+        // If it's a username, check it against regex rules
+        return /^[a-zA-Z0-9_]+$/.test(val);
+      },
+      {
+        message: "Username can only contain letters, numbers, and underscores",
+      },
+    )
+    .transform((val) => {
+      // Normalise email addresses to lowercase, leave usernames exactly as they are
+      return val.includes("@") ? val.toLowerCase() : val;
+    }),
+  otp: z.string().trim().length(6, "Invalid OTP"),
+});
+
 export const resetPasswordSchema = z.object({
   resetToken: z.string().trim().min(1, "Reset token is required"),
   newPassword: z
@@ -114,11 +138,11 @@ export const resetPasswordSchema = z.object({
         ctx.addIssue({ code: "custom", message: "Must contain uppercase" });
       if (!/[0-9]/.test(val))
         ctx.addIssue({ code: "custom", message: "Must contain number" });
-      // if (!/[^a-zA-Z0-9]/.test(val))
-      //   ctx.addIssue({
-      //     code: "custom",
-      //     message: "Must contain special character",
-      //   });
+      if (!/[^a-zA-Z0-9]/.test(val))
+        ctx.addIssue({
+          code: "custom",
+          message: "Must contain special character",
+        });
     }),
 });
 

@@ -26,6 +26,12 @@ router.post(
   "/forgot-password/verify-token",
   authController.verifyResetTokenController,
 );
+
+router.post(
+  "/forgot-password/verify-otp",
+  authController.verifyResetOtpController,
+);
+
 router.post("/forgot-password/reset", authController.resetPasswordController);
 
 //Routes below require authentication

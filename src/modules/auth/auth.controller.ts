@@ -9,6 +9,7 @@ import {
   resetPasswordSchema,
   earlyAccessSchema,
   checkUsernameSchema,
+  verifyResetOtpSchema,
 } from "./auth.validation.js";
 import { BadRequestError, UnauthorizedError } from "../../utils/AppError.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
@@ -80,6 +81,16 @@ export const forgotPasswordController = async (req: Request, res: Response) => {
   const data = parseRequest(forgotPasswordSchema, req.body);
   await authService.forgotPassword(data.email);
   sendSuccess(res, {}, "OTP has been sent to the email");
+};
+
+export const verifyResetOtpController = async (req: Request, res: Response) => {
+  const data = parseRequest(verifyResetOtpSchema, req.body);
+  const result = await authService.verifyResetOtp(
+    data.identifier,
+    data.otp,
+    req.ip,
+  );
+  sendSuccess(res, result, "OTP verified");
 };
 
 export const verifyResetTokenController = async (

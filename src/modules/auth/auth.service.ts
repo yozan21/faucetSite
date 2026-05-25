@@ -19,7 +19,7 @@ import {
 } from "../../utils/AppError.js";
 import { getIpInfo, isSuspiciousIp } from "../../utils/ipUtils.js";
 import logger from "../../config/logger.js";
-import type { EarlyAccess, Prisma } from "../../generated/prisma/client.js";
+import { Prisma, type EarlyAccess } from "../../generated/prisma/client.js";
 import {
   generateOtp,
   incrementTokenAttempts,
@@ -36,10 +36,12 @@ import {
 import {
   checkAccountBlock,
   checkAccountLockout,
+  checkIpLimit,
   handleFailedAttempt,
   incrementIpAttempts,
   isCaptchaRequired,
   resetAccountAttempts,
+  resetIpAttempts,
 } from "../../utils/loginProtection.js";
 import { verifyCaptcha } from "../../utils/captchaUtils.js";
 import {
@@ -47,6 +49,7 @@ import {
   encrypt,
   generateRecoveryToken,
 } from "../../utils/encryptionUtils.js";
+import type { TransactionClient } from "../../generated/prisma/internal/prismaNamespace.js";
 
 const ADMIN_ROLES = ["superadmin", "admin", "moderator"];
 
@@ -119,6 +122,7 @@ export const signupUser = async (
           email: email ?? null,
           password: passwordHash,
           referralCode: newReferralCode,
+          role: "superadmin",
           createdCountry: ipInfo.country,
           createdIp: ip,
           browser: browser ?? null,
@@ -343,9 +347,9 @@ export const loginUser = async (
     await prisma.auditLog.create({
       data: {
         userId: user.id,
-        username: user.username,
         action: "COUNTRY_MISMATCH",
         metadata: {
+          username: user.username,
           registeredCountry: user.createdCountry,
           loginCountry: ipInfo.country,
           ip,
@@ -369,9 +373,9 @@ export const loginUser = async (
     await prisma.auditLog.create({
       data: {
         userId: user.id,
-        username: user.username,
         action: "IP_MISMATCH",
         metadata: {
+          username: user.username,
           registeredIp: user.createdIp,
           loginIp: ip,
           fraudScore: ipInfo.fraudScore,
@@ -399,7 +403,6 @@ export const loginUser = async (
       username: user.username,
       email: user.email,
       role: user.role,
-      captchaRequired: false,
     },
     tokens,
   };
@@ -539,26 +542,32 @@ export const verifyEmailWithToken = async (
 
     throw new UnauthorizedError("Invalid credentails");
   }
-  await resetAccountAttempts(userId, ip);
-  await redis.del(VERIFY_TOKEN_ATTEMPTS_KEY(userId));
-  await redis.del(BLOCK_KEY(userId));
 
-  await prisma.user.update({
-    where: { id: BigInt(userId) },
-    data: {
-      isVerified: true,
-      verifiedAt: new Date(),
-      recoveryTokenUsedAt: new Date(),
-    },
-  });
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await tx.user.update({
+      where: { id: BigInt(userId) },
+      data: {
+        isVerified: true,
+        verifiedAt: new Date(),
+        recoveryTokenUsedAt: new Date(),
+      },
+    });
 
-  await prisma.auditLog.create({
-    data: {
-      userId: BigInt(userId),
-      username: user.username,
-      action: "EMAIL_VERIFIED",
-      metadata: { ip, method: "recovery_token" },
-    },
+    await tx.auditLog.create({
+      data: {
+        userId: BigInt(userId),
+        action: "EMAIL_VERIFIED",
+        metadata: {
+          username: user.username,
+          ip,
+          method: "recovery_token",
+        },
+      },
+    });
+
+    await resetAccountAttempts(userId, ip);
+    await redis.del(VERIFY_TOKEN_ATTEMPTS_KEY(userId));
+    await redis.del(BLOCK_KEY(userId));
   });
 };
 
@@ -586,12 +595,17 @@ export const forgotPassword = async (email: string) => {
 
 /*========= Verify Reset By OTP =========*/
 export const verifyResetOtp = async (
-  email: string,
+  identifier: string,
   otp: string,
   ip?: string,
 ) => {
   const user = await prisma.user.findFirst({
-    where: { email: { equals: email, mode: "insensitive" } },
+    where: {
+      OR: [
+        { username: { equals: identifier, mode: "insensitive" } },
+        { email: { equals: identifier } },
+      ],
+    },
     select: { id: true },
   });
 
@@ -626,7 +640,7 @@ export const verifyResetToken = async (
         { email: { equals: identifier } },
       ],
     },
-    select: { id: true, username: true, recoveryToken: true },
+    select: { id: true, username: true, recoveryToken: true, role: true },
   });
 
   if (!user || !user.recoveryToken)
@@ -644,67 +658,107 @@ export const verifyResetToken = async (
 
     throw new UnauthorizedError("Invalid credentials");
   }
-  await resetAccountAttempts(user.id.toString(), ip);
-  await redis.del(VERIFY_TOKEN_ATTEMPTS_KEY(user.id.toString()));
-  await redis.del(BLOCK_KEY(user.id.toString()));
 
   // Token valid — generate reset token
   const resetToken = crypto.randomBytes(32).toString("hex");
   await redis.setEx(RESET_TOKEN_KEY(resetToken), 60 * 15, user.id.toString()); // 15 min
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { recoveryTokenUsedAt: new Date() },
+  const data = await prisma.$transaction(async (tx: TransactionClient) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { recoveryTokenUsedAt: new Date() },
+    });
+
+    if (user.role === "superadmin") {
+      const otp = generateOtp();
+      await redis.setEx(`otp:reset:${user.id}`, 60 * 10, otp); // 10 mins
+
+      // NO email sent — retrieve from Redis CLI only
+      // redis-cli GET otp:reset:{userId}
+
+      logger.warn(
+        { userId: user.id },
+        "Superadmin reset OTP stored in Redis — retrieve via CLI",
+      );
+
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "SUPERADMIN_RESET_OTP_GENERATED",
+          metadata: { ip, username: user.username, timestamp: new Date() },
+        },
+      });
+
+      return { requiresOtp: true };
+    } else
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "RECOVERY_TOKEN_USED_FOR_RESET",
+          metadata: {
+            username: user.username,
+            ip,
+          },
+        },
+      });
   });
 
-  await prisma.auditLog.create({
-    data: {
-      userId: user.id,
-      username: user.username,
-      action: "RECOVERY_TOKEN_USED_FOR_RESET",
-      metadata: { ip },
-    },
-  });
+  await resetAccountAttempts(user.id.toString(), ip);
+  await redis.del(VERIFY_TOKEN_ATTEMPTS_KEY(user.id.toString()));
+  await redis.del(BLOCK_KEY(user.id.toString()));
 
-  return { resetToken };
+  if (data) return data;
+  else return { resetToken };
 };
 
 /*========= Reset Password =========*/
 export const resetPassword = async (
   resetToken: string,
   newPassword: string,
+  ip?: string,
 ) => {
+  await checkIpLimit(ip ?? "unknown");
+  await incrementIpAttempts(ip ?? "unknown");
   const userId = await redis.get(RESET_TOKEN_KEY(resetToken));
   if (!userId) throw new BadRequestError("Reset token expired or invalid");
 
   const passwordHash = await hashPassword(newPassword);
 
-  const updatedUser = await prisma.user.update({
-    where: { id: BigInt(userId) },
-    data: {
-      password: passwordHash,
-      lastPasswordChangeAt: new Date(),
-    },
-    select: {
-      username: true,
-      email: true,
-    },
-  });
+  const updatedUser = await prisma.$transaction(
+    async (tx: TransactionClient) => {
+      const updated = await tx.user.update({
+        where: { id: BigInt(userId) },
+        data: {
+          password: passwordHash,
+          lastPasswordChangeAt: new Date(),
+        },
+        select: {
+          username: true,
+          email: true,
+        },
+      });
+      // audit log
+      await tx.auditLog.create({
+        data: {
+          userId: BigInt(userId),
+          action: "PASSWORD_RESET",
+          metadata: {
+            username: updated.username,
+            timestamp: new Date(),
+          },
+        },
+      });
 
-  // invalidate reset token + all refresh tokens
-  await redis.del(RESET_TOKEN_KEY(resetToken));
-  await redis.del(`refresh:${userId}`);
+      // invalidate reset token + all refresh tokens
+      await redis.del(RESET_TOKEN_KEY(resetToken));
+      await redis.del(`refresh:${userId}`);
+      await resetIpAttempts(ip ?? "unknown");
 
-  // audit log
-
-  await prisma.auditLog.create({
-    data: {
-      userId: BigInt(userId),
-      action: "PASSWORD_RESET",
-      metadata: { timestamp: new Date() },
+      return updated;
     },
-  });
-  if (updatedUser.email)
+  );
+
+  if (updatedUser?.email)
     await sendMail({
       to: updatedUser.email,
       subject: "Your password was reset",
@@ -726,15 +780,12 @@ export const unblockAccount = async (
   const isBlocked = await redis.get(BLOCK_KEY(targetUserId));
   if (!isBlocked) throw new BadRequestError("User is not blocked");
 
-  await redis.del(BLOCK_KEY(targetUserId));
-  await redis.del(RESET_ATTEMPTS_KEY(targetUserId));
-
   await prisma.auditLog.create({
     data: {
       targetId: targetUserId,
       targetType: "User",
       teamMemberId: BigInt(unlockedById),
-      action: "OTP_UNBLOCK",
+      action: "ACCOUNT_UNBLOCK",
       metadata: {
         targetUserId,
         unlockedById,
@@ -744,6 +795,8 @@ export const unblockAccount = async (
       },
     },
   });
+  await redis.del(BLOCK_KEY(targetUserId));
+  await redis.del(RESET_ATTEMPTS_KEY(targetUserId));
 };
 
 /*========= Request Early Access =========*/

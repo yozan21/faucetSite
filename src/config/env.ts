@@ -40,6 +40,8 @@ const envSchema = z.object({
 
   MAIL_FROM_EMAIL: z.email(),
   MAIL_FROM_NAME: z.string(),
+
+  CONTROL_WHITELISTED_IPS: z.string(),
 });
 
 const parsed = envSchema.safeParse(process.env);

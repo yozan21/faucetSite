@@ -7,9 +7,7 @@ import { pinoHttp } from "pino-http";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cookieParser from "cookie-parser";
 import authRouter from "./modules/auth/auth.routes.js";
-import rateLimit from "express-rate-limit";
-import RedisStore from "rate-limit-redis";
-import redis from "./config/redis.js";
+import userRouter from "./modules/user/user.routes.js";
 
 export const createApp = (rateLimiter: RequestHandler) => {
   const app = express();
@@ -29,6 +27,7 @@ export const createApp = (rateLimiter: RequestHandler) => {
 
   // routes
   app.use("/api/v1/auth", authRouter);
+  app.use("/api/v1/user", userRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ success: false, message: "Route not found" });
